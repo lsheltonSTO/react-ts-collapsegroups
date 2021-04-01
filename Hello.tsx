@@ -30,23 +30,39 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
   //   this.forceUpdate();
   // }
 
-  public expandChange = event => {
-    const isExpanded =
-      event.dataItem.expanded === undefined
-        ? event.dataItem.aggregates
-        : event.dataItem.expanded;
-    event.dataItem.expanded = !isExpanded;
-    this.setState({ ...this.state });
-  };
+  // public expandChange = event => {
+  //   const isExpanded =
+  //     event.dataItem.expanded === undefined
+  //       ? event.dataItem.aggregates
+  //       : event.dataItem.expanded;
+  //   event.dataItem.expanded = !isExpanded;
+  //   this.setState({ ...this.state });
+  // };
+
+  // public expandChange = event => {
+  //   const item = event.dataItem;
+  //   this.setState({
+  //     collapsed: !event.value ?
+  //       [...this.state.collapsed, { value: event.dataItem.value, field: event.dataItem.field }] :
+  //       this.state.collapsed.filter(i => i.value !== item.value && i.field !== item.field)
+  //   });
+  // };
 
   //public expandChange: (event: GridExpandChangeEvent) => void;
+
+ public expandChange = (event) => {
+    event.dataItem.expanded = !event.dataItem.expanded;
+    this.forceUpdate();
+}
+
   constructor(props) {
     super(props);
     this.state = {
       gridData: [],
       dataState: { skip: 0, take: 10 },
       data: [],
-      items: []
+      items: [],
+      collapsed: []
     };
   }
 
@@ -72,10 +88,10 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
           sortable
           groupable
           resizable
+          onDataStateChange={(e) => this.setState({ dataState: e.dataState })}
+          {...this.state.dataState}
           onExpandChange={this.expandChange}
           expandField="expanded"
-          {...this.state.dataState}
-          onDataStateChange={(e) => this.setState({ dataState: e.dataState })}
         >
           <GridColumn field="name" title="Name" width="180px" />
           <GridColumn field="type" title="Type" width="140px" />
