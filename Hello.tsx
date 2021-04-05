@@ -7,53 +7,13 @@ import { process } from '@progress/kendo-data-query';
 import '@progress/kendo-theme-default';
 //import styles from './KendoTestMediaflux.module.scss';
 import { AadHttpClient, HttpClientResponse, SPHttpClient, ISPHttpClientOptions } from '@microsoft/sp-http';
-import { IntlService } from '@progress/kendo-react-intl';
-import { parseDate } from '@telerik/kendo-intl';
+//import { IntlService } from '@progress/kendo-react-intl';
+//import { parseDate } from '@telerik/kendo-intl';
 import * as moment from 'moment';
+import { mapTree, extendDataItem, TreeList } from "@progress/kendo-react-treelist";
 
 export default class WebApiConsumer extends React.Component<IKendoTestMediafluxProps, IKendoTestMediafluxState> {
   private readonly _webApiUrl = 'https://srm-sciprojapp6.azurewebsites.net/';
-  public expandedValues = [];
-  public dataStateChange = (event) => {
-    this.setState({
-      dataState: event.data
-    });
-  }
-  // public expandChange = (event: { dataItem: { value: any; }; }) => {
-  //   let index = this.expandedValues.indexOf(event.dataItem.value);
-  //   if (index >= 0) {
-  //     this.expandedValues.splice(index, 1);
-  //   } else {
-  //     this.expandedValues.push(event.dataItem.value);
-  //   }
-
-  //   this.forceUpdate();
-  // }
-
-  // public expandChange = event => {
-  //   const isExpanded =
-  //     event.dataItem.expanded === undefined
-  //       ? event.dataItem.aggregates
-  //       : event.dataItem.expanded;
-  //   event.dataItem.expanded = !isExpanded;
-  //   this.setState({ ...this.state });
-  // };
-
-  // public expandChange = event => {
-  //   const item = event.dataItem;
-  //   this.setState({
-  //     collapsed: !event.value ?
-  //       [...this.state.collapsed, { value: event.dataItem.value, field: event.dataItem.field }] :
-  //       this.state.collapsed.filter(i => i.value !== item.value && i.field !== item.field)
-  //   });
-  // };
-
-  //public expandChange: (event: GridExpandChangeEvent) => void;
-
- public expandChange = (event) => {
-    event.dataItem.expanded = !event.dataItem.expanded;
-    this.forceUpdate();
-}
 
   constructor(props) {
     super(props);
@@ -62,44 +22,63 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
       dataState: { skip: 0, take: 10 },
       data: [],
       items: [],
-      collapsed: []
+      collapsed: [],
+      groupable: true,
+      selected: [],
+      result: []
     };
   }
 
   public render(): React.ReactElement<IKendoTestMediafluxProps> {
-    let data = process(this.state.data, this.state.dataState);
-    data.data.map(item => {
-      let index = this.expandedValues.indexOf(item.value);
-      if (index === -1) {
-        item.expanded = false;
-        return item;
-      }
-      return item;
-    });
 
     const dataSource = this.state.items;
-    console.log(dataSource);
+    //console.log(dataSource);
+
+    // let newData = mapTree(dataSource, "items", item =>
+    //   extendDataItem(item, "items", {
+    //     expanded: !this.state.collapsed.some((i: { value: any; field: any; }) => i.value === item.value && i.field === item.field)
+    //   })
+    // );
+
+    let newData = mapTree(dataSource, "items", item => {
+      if (item.name !== undefined) {
+        return extendDataItem(item, "items", {
+          expanded: !this.state.collapsed.some(i => i.value === item.value && i.field === item.field),
+          selected: this.state.selected.includes(item.name)
+        });
+      } else {
+        return extendDataItem(item, "items", {
+          expanded: !this.state.collapsed.some(i => i.value === item.value && i.field === item.field)
+        });
+      }
+    }
+    );
+    console.log(newData);
 
     return (
       <div>
-        <Grid data={process(dataSource, this.state.dataState)}
+        <Grid
+          //data={process(dataSource, this.state.dataState)}
+          data={newData}
           pageable
           filterable
           sortable
-          groupable
+          groupable={this.state.groupable}
           resizable
-          onDataStateChange={(e) => this.setState({ dataState: e.dataState })}
+          //onDataStateChange={(e) => this.setState({ dataState: e.dataState })}
+          onDataStateChange={this.dataStateChange}
           {...this.state.dataState}
           onExpandChange={this.expandChange}
           expandField="expanded"
         >
+
           <GridColumn field="name" title="Name" width="180px" />
           <GridColumn field="type" title="Type" width="140px" />
-          <GridColumn field="filesize" title="Filesize" width="100px"/>
+          <GridColumn field="filesize" title="Filesize" width="100px" />
           <GridColumn field="created_at" title="Created At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
-          <GridColumn field="modified_at" title="Modified At" filter="date" format="{0:MM-dd-yyyy}" width="120px"/>
+          <GridColumn field="modified_at" title="Modified At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
           <GridColumn field="path" title="Path" />
-          <GridColumn field="is_directory" title="Is Directory" filter="boolean" width="100px"/>
+          <GridColumn field="is_directory" title="Is Directory" filter="boolean" width="100px" />
         </Grid>
       </div>
     );
@@ -137,7 +116,6 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
             let newItems = [];
             items.forEach(
               (item: any): void => {
-                //console.log(item);
                 newItems.push({
                   asset_id: item.asset_id,
                   name: item.name,
@@ -153,15 +131,61 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
                   //right side is the item coming from the rest call that you are leaving the same or changing
                 });
               });
-              this.setState({
-                items: newItems
-              });
+            this.setState({
+              items: newItems
+            });
           });
       });
-
     console.log(sitePath);
     //console.log(items); //this is where you actually do something with the items, store in a list or whatever, 31-43 is all necessary
   };
+
+  public dataStateChange = (event) => {
+    this.setState({
+      dataState: event.data,
+      result: process(this.state.items, event.data),
+      collapsed: event.data.group.length === 0 ? [] : this.state.collapsed
+    });
+  }
+
+  public expandedValues = [];
+
+  // public expandChange = (event: { dataItem: { value: any; }; }) => {
+  //   let index = this.expandedValues.indexOf(event.dataItem.value);
+  //   if (index >= 0) {
+  //     this.expandedValues.splice(index, 1);
+  //   } else {
+  //     this.expandedValues.push(event.dataItem.value);
+  //   }
+
+  //   this.forceUpdate();
+  // }
+
+  // public expandChange = event => {
+  //   const isExpanded =
+  //     event.dataItem.expanded === undefined
+  //       ? event.dataItem.aggregates
+  //       : event.dataItem.expanded;
+  //   event.dataItem.expanded = !isExpanded;
+  //   this.setState({ ...this.state });
+  // };
+
+  private expandChange = event => {
+    const item = event.dataItem;
+    this.setState({
+      collapsed: !event.value ?
+        [...this.state.collapsed, { value: item.value, field: item.field }] :
+        this.state.collapsed.filter(i => i.value !== item.value)
+    });
+  };
+
+  //public expandChange: (event: GridExpandChangeEvent) => void;
+
+  //  public expandChange = (event) => {
+  //     event.dataItem.expanded = !event.dataItem.expanded;
+  //     this.forceUpdate();
+  // }
+
 
   private getSitePath() {
     const url = this.props.context.pageContext.site.absoluteUrl;
@@ -169,6 +193,7 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
     const sitePath = urlArray[urlArray.length - 1]
     return sitePath;
   };
+
   componentDidMount() {
     this.load()
   }
