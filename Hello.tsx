@@ -1,86 +1,112 @@
-import * as React from 'react';
-import * as ReactDOM from 'react-dom';
+import React, { Component } from "react";
+import { render } from "react-dom";
 import { IKendoTestMediafluxProps } from './IKendoTestMediafluxProps';
 import { IKendoTestMediafluxState } from './IKendoTestMediafluxState';
-import { Grid, GridColumn, GridExpandChangeEvent } from '@progress/kendo-react-grid';
-import { process } from '@progress/kendo-data-query';
+import {
+  Grid,
+  GridColumn as Column,
+  GridDataStateChangeEvent,
+  GridExpandChangeEvent
+} from "@progress/kendo-react-grid";
+import { mapTree, extendDataItem } from "@progress/kendo-react-treelist";
+import { process, State, DataResult } from "@progress/kendo-data-query";
 import '@progress/kendo-theme-default';
-//import styles from './KendoTestMediaflux.module.scss';
 import { AadHttpClient, HttpClientResponse, SPHttpClient, ISPHttpClientOptions } from '@microsoft/sp-http';
-//import { IntlService } from '@progress/kendo-react-intl';
-//import { parseDate } from '@telerik/kendo-intl';
 import * as moment from 'moment';
-import { mapTree, extendDataItem, TreeList } from "@progress/kendo-react-treelist";
+import { WebPartContext } from "@microsoft/sp-webpart-base";
 
-export default class WebApiConsumer extends React.Component<IKendoTestMediafluxProps, IKendoTestMediafluxState> {
-  private readonly _webApiUrl = 'https://srm-sciprojapp6.azurewebsites.net/';
+const dataState: State = {
+};
+
+export default class App extends React.Component<IKendoTestMediafluxProps, IKendoTestMediafluxState> {
+  // state = {
+  //   dataState: dataState,
+  //   result: [process(this.state.items, dataState)],
+  //   selected: [],
+  //   collapsed: [],
+  //   items: []
+  // };
 
   constructor(props) {
     super(props);
     this.state = {
-      gridData: [],
-      dataState: { skip: 0, take: 10 },
-      data: [],
-      items: [],
-      collapsed: [],
-      groupable: true,
+      dataState: dataState,
+      result: process(this.state.items, dataState),
       selected: [],
-      result: []
+      collapsed: [],
+      items: []
     };
   }
 
-  public render(): React.ReactElement<IKendoTestMediafluxProps> {
+  private dataStateChange = (event: GridDataStateChangeEvent) => {
+    this.setState({
+      dataState: event.dataState,
+      result: process(this.state.items, event.dataState),
+      collapsed: event.dataState.group.length === 0 ? [] : this.state.collapsed
+    });
+  };
 
-    const dataSource = this.state.items;
-    //console.log(dataSource);
+  private expandChange = (event: GridExpandChangeEvent) => {
+    const item = event.dataItem;
+    this.setState({
+      collapsed: !event.value
+        ? [...this.state.collapsed, { value: item.value, field: item.field }]
+        : this.state.collapsed.filter(i => i.value !== item.value)
+    });
+  };
 
-    // let newData = mapTree(dataSource, "items", item =>
-    //   extendDataItem(item, "items", {
-    //     expanded: !this.state.collapsed.some((i: { value: any; field: any; }) => i.value === item.value && i.field === item.field)
-    //   })
-    // );
-
-    let newData = mapTree(dataSource, "items", item => {
-      if (item.name !== undefined) {
+  public render() {
+    console.log(dataState);
+    let newData = mapTree(this.state.result.data, "items", item => {
+      if (item.ProductID !== undefined) {
         return extendDataItem(item, "items", {
-          expanded: !this.state.collapsed.some(i => i.value === item.value && i.field === item.field),
-          selected: this.state.selected.includes(item.name)
+          expanded: !this.state.collapsed.some(
+            i => i.value === item.value && i.field === item.field
+          ),
+          selected: this.state.selected.includes(item.ProductID)
         });
       } else {
         return extendDataItem(item, "items", {
-          expanded: !this.state.collapsed.some(i => i.value === item.value && i.field === item.field)
+          expanded: !this.state.collapsed.some(
+            i => i.value === item.value && i.field === item.field
+          )
         });
       }
-    }
-    );
-    console.log(newData);
+    });
 
     return (
-      <div>
+      <React.Fragment>
         <Grid
-          //data={process(dataSource, this.state.dataState)}
+          style={{ height: "620px" }}
           data={newData}
           pageable
+          groupable
           filterable
-          sortable
-          groupable={this.state.groupable}
           resizable
-          //onDataStateChange={(e) => this.setState({ dataState: e.dataState })}
+          reorderable
+          sortable
+          total={this.state.result.total}
           onDataStateChange={this.dataStateChange}
           {...this.state.dataState}
           onExpandChange={this.expandChange}
           expandField="expanded"
+          selectedField="selected"
         >
-
-          <GridColumn field="name" title="Name" width="180px" />
-          <GridColumn field="type" title="Type" width="140px" />
-          <GridColumn field="filesize" title="Filesize" width="100px" />
-          <GridColumn field="created_at" title="Created At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
-          <GridColumn field="modified_at" title="Modified At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
-          <GridColumn field="path" title="Path" />
-          <GridColumn field="is_directory" title="Is Directory" filter="boolean" width="100px" />
+          <Column
+            field="name"
+            //groupId="G1"
+            title="Name"
+            width="180px"
+          />
+          <Column field="type" title="Type" width="140px" />
+          <Column field="filesize" title="Filesize" width="100px" />
+          <Column field="Discontinued" title="Discontinued" width="180px" />
+          <Column field="created_at" title="Created At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
+          <Column field="modified_at" title="Modified At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
+          <Column field="path" title="Path" />
+          <Column field="is_directory" title="Is Directory" filter="boolean" width="100px" />
         </Grid>
-      </div>
+      </React.Fragment>
     );
   }
 
@@ -90,6 +116,15 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
     console.log(w);
     return w;
   }
+
+  private readonly _webApiUrl = 'https://srm-sciprojapp6.azurewebsites.net/';
+
+  private getSitePath() {
+    const url = this.props.context.pageContext.site.absoluteUrl;
+    const urlArray = url.split("/");
+    const sitePath = urlArray[urlArray.length - 1]
+    return sitePath;
+  };
 
   private load = async () => {
     const myOptions: ISPHttpClientOptions = {
@@ -126,7 +161,6 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
                   path: item.path,
                   url: item.url,
                   is_directory: item.is_directory
-                  //all your properties you need
                   //left side is the new object property
                   //right side is the item coming from the rest call that you are leaving the same or changing
                 });
@@ -134,67 +168,14 @@ export default class WebApiConsumer extends React.Component<IKendoTestMediafluxP
             this.setState({
               items: newItems
             });
+            console.log(newItems);
           });
       });
-    console.log(sitePath);
-    //console.log(items); //this is where you actually do something with the items, store in a list or whatever, 31-43 is all necessary
-  };
-
-  public dataStateChange = (event) => {
-    this.setState({
-      dataState: event.data,
-      result: process(this.state.items, event.data),
-      collapsed: event.data.group.length === 0 ? [] : this.state.collapsed
-    });
   }
 
-  public expandedValues = [];
-
-  // public expandChange = (event: { dataItem: { value: any; }; }) => {
-  //   let index = this.expandedValues.indexOf(event.dataItem.value);
-  //   if (index >= 0) {
-  //     this.expandedValues.splice(index, 1);
-  //   } else {
-  //     this.expandedValues.push(event.dataItem.value);
-  //   }
-
-  //   this.forceUpdate();
-  // }
-
-  // public expandChange = event => {
-  //   const isExpanded =
-  //     event.dataItem.expanded === undefined
-  //       ? event.dataItem.aggregates
-  //       : event.dataItem.expanded;
-  //   event.dataItem.expanded = !isExpanded;
-  //   this.setState({ ...this.state });
-  // };
-
-  private expandChange = event => {
-    const item = event.dataItem;
-    this.setState({
-      collapsed: !event.value ?
-        [...this.state.collapsed, { value: item.value, field: item.field }] :
-        this.state.collapsed.filter(i => i.value !== item.value)
-    });
-  };
-
-  //public expandChange: (event: GridExpandChangeEvent) => void;
-
-  //  public expandChange = (event) => {
-  //     event.dataItem.expanded = !event.dataItem.expanded;
-  //     this.forceUpdate();
-  // }
-
-
-  private getSitePath() {
-    const url = this.props.context.pageContext.site.absoluteUrl;
-    const urlArray = url.split("/");
-    const sitePath = urlArray[urlArray.length - 1]
-    return sitePath;
-  };
-
-  componentDidMount() {
+  public componentDidMount() {
     this.load()
   }
 }
+
+//render(<App />, document.getElementById("root"));
