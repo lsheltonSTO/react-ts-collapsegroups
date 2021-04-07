@@ -30,40 +30,22 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
   constructor(props) {
     super(props);
     this.state = {
-      dataState: dataState,
-      result: process(this.state.items, dataState),
+      dataState: dataState, //{ skip: 0, take: 10 },
+      result: { data: [], total: 0}, //process(this.state.items, dataState),
       selected: [],
       collapsed: [],
       items: []
     };
   }
 
-  private dataStateChange = (event: GridDataStateChangeEvent) => {
-    this.setState({
-      dataState: event.dataState,
-      result: process(this.state.items, event.dataState),
-      collapsed: event.dataState.group.length === 0 ? [] : this.state.collapsed
-    });
-  };
-
-  private expandChange = (event: GridExpandChangeEvent) => {
-    const item = event.dataItem;
-    this.setState({
-      collapsed: !event.value
-        ? [...this.state.collapsed, { value: item.value, field: item.field }]
-        : this.state.collapsed.filter(i => i.value !== item.value)
-    });
-  };
-
   public render() {
-    console.log(dataState);
     let newData = mapTree(this.state.result.data, "items", item => {
-      if (item.ProductID !== undefined) {
+      if (item.filesize !== undefined) {
         return extendDataItem(item, "items", {
           expanded: !this.state.collapsed.some(
             i => i.value === item.value && i.field === item.field
           ),
-          selected: this.state.selected.includes(item.ProductID)
+          selected: this.state.selected.includes(item.filesize)
         });
       } else {
         return extendDataItem(item, "items", {
@@ -74,11 +56,14 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
       }
     });
 
+    // const dataSource = this.state.items;
+    // console.log(dataSource);
+
     return (
       <React.Fragment>
         <Grid
           style={{ height: "620px" }}
-          data={newData}
+          data={newData} //{process(dataSource, this.state.dataState)}
           pageable
           groupable
           filterable
@@ -100,7 +85,6 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
           />
           <Column field="type" title="Type" width="140px" />
           <Column field="filesize" title="Filesize" width="100px" />
-          <Column field="Discontinued" title="Discontinued" width="180px" />
           <Column field="created_at" title="Created At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
           <Column field="modified_at" title="Modified At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
           <Column field="path" title="Path" />
@@ -109,6 +93,23 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
       </React.Fragment>
     );
   }
+
+  private dataStateChange = (event: GridDataStateChangeEvent) => {
+    this.setState({
+      dataState: event.dataState,
+      result: process(this.state.items, event.dataState),
+      collapsed: event.dataState.group.length === 0 ? [] : this.state.collapsed
+    });
+  };
+
+  private expandChange = (event: GridExpandChangeEvent) => {
+    const item = event.dataItem;
+    this.setState({
+      collapsed: !event.value
+        ? [...this.state.collapsed, { value: item.value, field: item.field }]
+        : this.state.collapsed.filter(i => i.value !== item.value)
+    });
+  };
 
   private getSiteTitle = async () => {
     const response = await this.props.context.spHttpClient.get(this.props.context.pageContext.web.absoluteUrl + "/_api/web/title", SPHttpClient.configurations.v1);
