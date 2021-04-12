@@ -6,7 +6,8 @@ import {
   Grid,
   GridColumn as Column,
   GridDataStateChangeEvent,
-  GridExpandChangeEvent
+  GridExpandChangeEvent,
+  GridDetailRow
 } from "@progress/kendo-react-grid";
 import { mapTree, extendDataItem } from "@progress/kendo-react-treelist";
 import { process, State, DataResult } from "@progress/kendo-data-query";
@@ -18,7 +19,19 @@ import { WebPartContext } from "@microsoft/sp-webpart-base";
 const dataState: State = {
 };
 
-export default class App extends React.Component<IKendoTestMediafluxProps, IKendoTestMediafluxState> {
+class DetailComponent extends GridDetailRow {
+  render() {
+      const dataItem = this.props.dataItem;
+      return (
+        <section>
+          <p><strong>Asset ID:</strong> {dataItem.asset_id}</p>
+          <p><strong>Path:</strong> {dataItem.path}</p>
+        </section>
+      );
+  }
+}
+
+export default class App extends React.Component<IKendoTestMediafluxProps, IKendoTestMediafluxState, GridDetailRow> {
   // state = {
   //   dataState: dataState,
   //   result: [process(this.state.items, dataState)],
@@ -34,7 +47,8 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
       result: { data: [], total: 0}, //process(this.state.items, dataState),
       selected: [],
       collapsed: [],
-      items: []
+      items: [],
+      data: [],
     };
   }
 
@@ -64,6 +78,7 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
         <Grid
           style={{ height: "620px" }}
           data={newData} //{process(dataSource, this.state.dataState)}
+          detail={DetailComponent}
           pageable
           groupable
           filterable
@@ -73,9 +88,9 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
           total={this.state.result.total}
           onDataStateChange={this.dataStateChange}
           {...this.state.dataState}
-          onExpandChange={this.expandChange}
           expandField="expanded"
           selectedField="selected"
+          onExpandChange={this.expandChange}
         >
           <Column
             field="name"
@@ -87,7 +102,7 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
           <Column field="filesize" title="Filesize" width="100px" />
           <Column field="created_at" title="Created At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
           <Column field="modified_at" title="Modified At" filter="date" format="{0:MM-dd-yyyy}" width="120px" />
-          <Column field="path" title="Path" />
+          {/* <Column field="path" title="Path" /> */}
           <Column field="is_directory" title="Is Directory" filter="boolean" width="100px" />
         </Grid>
       </React.Fragment>
@@ -103,12 +118,15 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
   };
 
   private expandChange = (event: GridExpandChangeEvent) => {
+
     const item = event.dataItem;
     this.setState({
       collapsed: !event.value
         ? [...this.state.collapsed, { value: item.value, field: item.field }]
         : this.state.collapsed.filter(i => i.value !== item.value)
     });
+    event.dataItem.expanded = !event.dataItem.expanded;
+    this.forceUpdate();
   };
 
   private getSiteTitle = async () => {
@@ -166,9 +184,15 @@ export default class App extends React.Component<IKendoTestMediafluxProps, IKend
                   //right side is the item coming from the rest call that you are leaving the same or changing
                 });
               });
+            // this.setState({
+            //   items: newItems
+            // });
+
             this.setState({
-              items: newItems
+              items: newItems,
+              result: process(newItems, this.state.dataState)
             });
+
             console.log(newItems);
           });
       });
